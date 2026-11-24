@@ -118,6 +118,54 @@ public partial class InlineTest : Control
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
         Save(tsViewport, "wrap_ts_narrow");
 
+        const string FontWrapDoc = "[font_size=30][panel modulate=red][margin=8][img=32x32]res://icon.svg[/img]Sweep ATK[/margin][/panel]Deal 20 ATK![/font_size]";
+
+        var fontWrapViewport = new SubViewport
+        {
+            Size = new Vector2I(500, 200),
+            RenderTargetUpdateMode = SubViewport.UpdateMode.Always,
+        };
+        AddChild(fontWrapViewport);
+        fontWrapViewport.AddChild(new ColorRect
+        {
+            Color = new Color(0.1f, 0.1f, 0.12f),
+            Size = new Vector2(500, 200),
+        });
+        var fontWrapControl = new MoreRichTextLabel
+        {
+            Position = new Vector2(10, 10),
+            Size = new Vector2(300, 180),
+        };
+        fontWrapViewport.AddChild(fontWrapControl);
+        fontWrapControl.SetTextForced(FontWrapDoc);
+        fontWrapControl.ForceRelayoutAtWidth(300);
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        Save(fontWrapViewport, "font-wrap");
+
+        var fontWrapGdViewport = new SubViewport
+        {
+            Size = new Vector2I(500, 200),
+            RenderTargetUpdateMode = SubViewport.UpdateMode.Always,
+        };
+        AddChild(fontWrapGdViewport);
+        fontWrapGdViewport.AddChild(new ColorRect
+        {
+            Color = new Color(0.1f, 0.1f, 0.12f),
+            Size = new Vector2(500, 200),
+        });
+        var fontWrapGd = (Control)gdScript.New();
+        fontWrapGd.Position = new Vector2(10, 10);
+        fontWrapGd.Size = new Vector2(300, 180);
+        fontWrapGdViewport.AddChild(fontWrapGd);
+        fontWrapGd.Call("set_markup", FontWrapDoc);
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        fontWrapGd.Call("force_relayout_at_width", 300.0f);
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        Save(fontWrapGdViewport, "font-wrap-gd");
+
         GetTree().Quit();
     }
 

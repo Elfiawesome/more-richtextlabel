@@ -22,6 +22,7 @@ public enum DocBlockKind
     Text,
     Panel,
     Margin,
+    Break,
 }
 
 public abstract class DocBlock
@@ -68,6 +69,13 @@ public sealed class DocPanel : DocBlock
     }
 }
 
+public sealed class DocBreak : DocBlock
+{
+    public DocBreak()
+    {
+        Kind = DocBlockKind.Break;
+    }
+}
 public sealed class DocMargin : DocBlock
 {
     public float Left { get; set; }
@@ -141,21 +149,21 @@ public sealed class BbcodeDocumentParser
             int open = _source.IndexOf('[', _pos);
             if (open < 0)
             {
-                _buffer.Append(_source, _pos, _source.Length - _pos);
+                AppendTextSegment(_source.Substring(_pos), destination);
                 _pos = _source.Length;
                 break;
             }
 
             if (open > _pos)
             {
-                _buffer.Append(_source, _pos, open - _pos);
+                AppendTextSegment(_source.Substring(_pos, open - _pos), destination);
                 _pos = open;
             }
 
             int close = _source.IndexOf(']', _pos + 1);
             if (close < 0)
             {
-                _buffer.Append(_source, _pos, _source.Length - _pos);
+                AppendTextSegment(_source.Substring(_pos), destination);
                 _pos = _source.Length;
                 break;
             }
@@ -208,6 +216,39 @@ public sealed class BbcodeDocumentParser
         FlushText(destination);
     }
 
+    private void AppendTextSegment(string text, DocSequence destination)
+    {
+        int start = 0;
+
+        for (int i = 0; i < text.Length; i++)
+        {
+            char c = text[i];
+
+            if (c != '\n' && c != '\r')
+            {
+                continue;
+            }
+
+            if (i > start)
+            {
+                _buffer.Append(text, start, i - start);
+            }
+
+            if (c == '\r' && i + 1 < text.Length && text[i + 1] == '\n')
+            {
+                i++;
+            }
+
+            FlushText(destination);
+            destination.Children.Add(new DocBreak());
+            start = i + 1;
+        }
+
+        if (start < text.Length)
+        {
+            _buffer.Append(text, start, text.Length - start);
+        }
+    }
     private void AppendStandardTag(string name, bool isClosing, string raw)
     {
         if (isClosing)
@@ -999,76 +1040,180 @@ public partial class TextServerRichTextLabel : Control
         }
     }
 
-    private bool CanSplitPlainText(string markup)
+    private bool TryGetSplitFragments(string markup, out List<string> fragments)
     {
-        if (markup.IndexOf('[') >= 0 ||
-            markup.IndexOf('\n') >= 0 ||
-            markup.IndexOf('\r') >= 0)
+        fragments = new List<string>();
+
+        if (markup.IndexOf('\n') >= 0 || markup.IndexOf('\r') >= 0)
         {
             return false;
         }
 
-        bool hasWord = false;
-        bool hasWhitespace = false;
-
-        foreach (char c in markup)
-        {
-            if (char.IsWhiteSpace(c))
-            {
-                hasWhitespace = true;
-            }
-            else
-            {
-                hasWord = true;
-            }
-        }
-
-        return hasWord && hasWhitespace;
-    }
-
-    private List<string> SplitWords(string markup)
-    {
-        var words = new List<string>();
+        var openNames = new List<string>();
+        var openRaws = new List<string>();
+        string pending = "";
         int i = 0;
 
         while (i < markup.Length)
         {
-            int start = i;
+            char c = markup[i];
 
-            while (i < markup.Length && char.IsWhiteSpace(markup[i]))
+            if (c == '[')
             {
-                i++;
+                int close = markup.IndexOf(']', i + 1);
+                if (close < 0)
+                {
+                    return false;
+                }
+
+                string raw = markup.Substring(i, close - i + 1);
+                string inner = markup.Substring(i + 1, close - i - 1);
+                bool closing = inner.StartsWith('/');
+                int nameStart = closing ? 1 : 0;
+                int nameEnd = nameStart;
+
+                while (nameEnd < inner.Length && inner[nameEnd] != '=' && !char.IsWhiteSpace(inner[nameEnd]))
+                {
+                    nameEnd++;
+                }
+
+                string name = inner.Substring(nameStart, nameEnd - nameStart).Trim().ToLowerInvariant();
+
+                if (!IsSafeInlineTag(name))
+                {
+                    return false;
+                }
+
+                if (closing)
+                {
+                    if (openNames.Count == 0 || openNames[openNames.Count - 1] != name)
+                    {
+                        return false;
+                    }
+
+                    if (pending.Length > 0)
+                    {
+                        FlushSplitFragment(pending, openNames, openRaws, fragments);
+                        pending = "";
+                    }
+
+                    openNames.RemoveAt(openNames.Count - 1);
+                    openRaws.RemoveAt(openRaws.Count - 1);
+                }
+                else
+                {
+                    if (pending.Trim().Length > 0)
+                    {
+                        return false;
+                    }
+
+                    openNames.Add(name);
+                    openRaws.Add(raw);
+                }
+
+                i = close + 1;
+                continue;
             }
 
-            int wordStart = i;
+            if (char.IsWhiteSpace(c))
+            {
+                if (pending.Trim().Length > 0)
+                {
+                    FlushSplitFragment(pending, openNames, openRaws, fragments);
+                    pending = "";
+                }
 
-            while (i < markup.Length && !char.IsWhiteSpace(markup[i]))
+                pending += c;
+            }
+            else
             {
-                i++;
+                pending += c;
             }
 
-            if (i > wordStart)
-            {
-                words.Add(markup.Substring(start, i - start));
-            }
-            else if (i == markup.Length && words.Count > 0 && start < i)
-            {
-                words[words.Count - 1] += markup.Substring(start);
-            }
+            i++;
         }
 
-        return words;
+        if (openNames.Count != 0)
+        {
+            return false;
+        }
+
+        if (pending.Length > 0)
+        {
+            FlushSplitFragment(pending, openNames, openRaws, fragments);
+        }
+
+        return fragments.Count > 1;
     }
+
+    private void FlushSplitFragment(string text, List<string> openNames, List<string> openRaws, List<string> fragments)
+    {
+        var builder = new StringBuilder();
+
+        foreach (string raw in openRaws)
+        {
+            builder.Append(raw);
+        }
+
+        builder.Append(text);
+
+        for (int i = openNames.Count - 1; i >= 0; i--)
+        {
+            builder.Append("[/").Append(openNames[i]).Append(']');
+        }
+
+        fragments.Add(builder.ToString());
+    }
+    private bool IsSafeInlineTag(string name)
+    {
+        return name switch
+        {
+            "b" or "i" or "u" or "s" or
+            "color" or "bgcolor" or "fgcolor" or
+            "font" or "font_size" or
+            "outline_size" or "outline_color" or
+            "meta" or "hint" or "language" or "code" => true,
+            _ => false,
+        };
+    }
+
+    private float GetEmptyLineHeight()
+    {
+        return _normalFont.GetHeight(_baseFontSize) + _lineSpacing;
+    }
+
     private float LayoutSequence(DocSequence sequence, float x, float y, float width)
     {
         float cursorY = y;
         float lineX = x;
         float lineHeight = 0.0f;
         bool hasLine = false;
+        bool lineHasWrappedText = false;
         var rowItems = new List<RowItem>();
+        float emptyLineHeight = GetEmptyLineHeight();
 
         foreach (DocBlock block in sequence.Children)
         {
+            if (block is DocBreak)
+            {
+                if (hasLine)
+                {
+                    ApplyRowAlignment(rowItems, lineHeight);
+                    rowItems.Clear();
+                    cursorY += lineHeight;
+                }
+                else
+                {
+                    cursorY += emptyLineHeight;
+                }
+
+                lineX = x;
+                lineHeight = 0.0f;
+                hasLine = false;
+                lineHasWrappedText = false;
+                continue;
+            }
+
             if (block is DocText blockText && IsBlockText(blockText))
             {
                 if (hasLine)
@@ -1079,6 +1224,7 @@ public partial class TextServerRichTextLabel : Control
                     lineX = x;
                     lineHeight = 0.0f;
                     hasLine = false;
+                    lineHasWrappedText = false;
                 }
 
                 cursorY += PlaceText(blockText, x, cursorY, width);
@@ -1093,11 +1239,23 @@ public partial class TextServerRichTextLabel : Control
                 continue;
             }
 
+            if (block is DocPanel && hasLine && lineHasWrappedText)
+            {
+                ApplyRowAlignment(rowItems, lineHeight);
+                rowItems.Clear();
+                cursorY += lineHeight;
+                lineX = x;
+                lineHeight = 0.0f;
+                hasLine = false;
+                lineHasWrappedText = false;
+            }
+
             if (hasLine && lineX + itemWidth > x + width)
             {
-                if (block is DocText splitText && CanSplitPlainText(splitText.Markup) &&
+                if (block is DocText splitText &&
                     TryPlaceSplitText(splitText, x, width, rowItems, ref lineX, ref cursorY, ref lineHeight, ref hasLine))
                 {
+                    lineHasWrappedText = true;
                     continue;
                 }
 
@@ -1107,12 +1265,19 @@ public partial class TextServerRichTextLabel : Control
                 lineX = x;
                 lineHeight = 0.0f;
                 hasLine = false;
+                lineHasWrappedText = false;
             }
 
             int blockStart = _placedBlocks.Count;
             int panelStart = _panels.Count;
             float itemHeight = PlaceBlock(block, lineX, cursorY, itemWidth);
             rowItems.Add(new RowItem(blockStart, _placedBlocks.Count, panelStart, _panels.Count, itemHeight));
+
+            if (block is DocText placedText && _blocks.TryGetValue(placedText, out TsTextBlock? placedBlock) && placedBlock.Paragraph.GetLineCount() > 1)
+            {
+                lineHasWrappedText = true;
+            }
+
             lineX += itemWidth;
             lineHeight = Mathf.Max(lineHeight, itemHeight);
             hasLine = true;
@@ -1237,9 +1402,10 @@ public partial class TextServerRichTextLabel : Control
         return parser.Parse();
     }
 
-    private float MeasurePlainWidth(string text)
+    private float MeasureMarkupWidth(string markup)
     {
-        return _normalFont.GetStringSize(text, HorizontalAlignment.Left, -1.0f, _baseFontSize).X;
+        TsTextBlock block = BuildTextBlock(markup);
+        return block.Paragraph.GetNonWrappedSize().X;
     }
 
     private bool TryPlaceSplitText(
@@ -1252,8 +1418,7 @@ public partial class TextServerRichTextLabel : Control
         ref float lineHeight,
         ref bool hasLine)
     {
-        List<string> words = SplitWords(text.Markup);
-        if (words.Count < 2)
+        if (!TryGetSplitFragments(text.Markup, out List<string> words) || words.Count < 2)
         {
             return false;
         }
@@ -1271,7 +1436,7 @@ public partial class TextServerRichTextLabel : Control
         for (int i = 0; i < words.Count; i++)
         {
             string candidate = headText + words[i];
-            float candidateWidth = MeasurePlainWidth(candidate);
+            float candidateWidth = MeasureMarkupWidth(candidate);
 
             if (candidateWidth > remaining)
             {
@@ -1334,6 +1499,9 @@ public partial class TextServerRichTextLabel : Control
     {
         switch (block)
         {
+            case DocBreak:
+                return 0.0f;
+
             case DocText text:
             {
                 if (_preferredTextWidths.TryGetValue(text, out float cached))

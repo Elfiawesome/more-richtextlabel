@@ -72,7 +72,7 @@ Or set `Text` directly in the inspector.
 
 ## Inline panels and margins
 
-Panels and margins behave like inline boxes. They shrink to fit their content, capped by the available width. Plain text around them stays on the same line when it fits and wraps word-by-word when it does not.
+Panels and margins behave like inline boxes. They shrink to fit their content, capped by the available width. Plain text around them stays on the same line when it fits and wraps word-by-word when it does not. If the text before a panel wraps, the panel starts on the next row. Newlines (`\n`) end the current row; blank lines add vertical space.
 
 ![Inline panels](docs/images/inline-panels.png)
 
@@ -109,7 +109,7 @@ The detailed 9-slice panel uses its own content margins.
 
 ![Word wrapping](docs/images/word-wrapping.png)
 
-Plain text after an inline panel fills the remaining line and wraps word-by-word.
+Text after an inline panel fills the remaining line and wraps word-by-word. Splitting happens only when needed; balanced inline formatting, effect tags, custom effects from `CustomEffects`, and images at word boundaries are preserved on each fragment. Tables/lists and malformed markup stay atomic.
 
 ## Panel modulation
 
@@ -221,9 +221,10 @@ Images are written to `docs/images/`.
 
 ## Limitations
 
-- Word-by-word wrapping applies to plain text runs. Runs containing formatting or effect tags remain atomic so effects and markup stay intact.
+- Word-by-word wrapping handles balanced inline formatting, effect tags, custom effects registered through `CustomEffects`, and images at word boundaries. Tables/lists, malformed markup, and unbalanced tags stay atomic.
+- A panel starts on a new row when the text before it wrapped, which can leave a short wrapped tail on its own row.
+- Effects are native `RichTextEffect`s and can draw outside the control bounds. Enable **Clip Contents** on the control if effects should stay inside it. Effect tags cannot span panel or margin boundaries.
 - Selection works per internal text block, not across panel boundaries.
-- Effects can draw outside the control bounds. Enable **Clip Contents** on the control if effects should stay inside it.
 - The static TextServer renderer intentionally has a reduced feature set.
 
 ## Project layout

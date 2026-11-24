@@ -92,6 +92,8 @@ var _preferred_text_widths := {}
 var _src := ""
 var _pos := 0
 var _buffer := ""
+var _open_tags: Array = []
+var _buffer_start_tags: Array = []
 
 var _style_cache := {}
 
@@ -278,6 +280,11 @@ func _create_aux_leaf() -> RichTextLabel:
 	leaf.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	leaf.clip_contents = false
 	leaf.add_theme_stylebox_override("normal", _empty_style)
+
+	for effect in custom_effects:
+		if effect != null:
+			leaf.install_effect(effect)
+
 	_configure_leaf_input(leaf)
 	add_child(leaf, false, Node.INTERNAL_MODE_FRONT)
 	leaf.visible = false
@@ -312,7 +319,7 @@ func _place_text_view(view: RichTextLabel, x: float, y: float, width: float) -> 
 
 
 func _try_split_text(block: DocBlock, x: float, width: float, row_items: Array, line_x: float, cursor_y: float, line_height: float) -> Array:
-	var words := _split_words(block.markup)
+	var words := _try_get_split_fragments(block.markup)
 	if words.size() < 2:
 		return [false, line_x, cursor_y, line_height, true]
 
@@ -382,14 +389,41 @@ func _trim_start_spaces(value: String) -> String:
 		start += 1
 	return value.substr(start)
 
+func _get_empty_line_height() -> float:
+	var font := get_theme_font("normal_font", "RichTextLabel")
+	var font_size := get_theme_font_size("normal_font_size", "RichTextLabel")
+
+	if font_size <= 0:
+		font_size = 16
+
+	if font != null:
+		return font.get_height(font_size) + get_theme_constant("line_separation", "RichTextLabel")
+
+	return font_size
+
 func _layout_sequence(sequence: Array, x: float, y: float, width: float) -> float:
 	var cursor_y := y
 	var line_x := x
 	var line_height := 0.0
 	var has_line := false
+	var line_has_wrapped_text := false
 	var row_items: Array = []
 
 	for block in sequence:
+		if block.kind == 3:
+			if has_line:
+				_apply_row_alignment(row_items, line_height)
+				row_items.clear()
+				cursor_y += line_height
+			else:
+				cursor_y += _get_empty_line_height()
+
+			line_x = x
+			line_height = 0.0
+			has_line = false
+			line_has_wrapped_text = false
+			continue
+
 		if block.kind == 0 and _is_block_text(block):
 			if has_line:
 				_apply_row_alignment(row_items, line_height)
@@ -398,6 +432,7 @@ func _layout_sequence(sequence: Array, x: float, y: float, width: float) -> floa
 				line_x = x
 				line_height = 0.0
 				has_line = false
+				line_has_wrapped_text = false
 			cursor_y += _place_text(block, x, cursor_y, width)
 			continue
 
@@ -407,14 +442,24 @@ func _layout_sequence(sequence: Array, x: float, y: float, width: float) -> floa
 		if item_width <= 0.01:
 			continue
 
+		if block.kind == 1 and has_line and line_has_wrapped_text:
+			_apply_row_alignment(row_items, line_height)
+			row_items.clear()
+			cursor_y += line_height
+			line_x = x
+			line_height = 0.0
+			has_line = false
+			line_has_wrapped_text = false
+
 		if has_line and line_x + item_width > x + width:
-			if block.kind == 0 and _can_split_plain_text(block.markup):
+			if block.kind == 0:
 				var split_result := _try_split_text(block, x, width, row_items, line_x, cursor_y, line_height)
 				if split_result[0]:
 					line_x = split_result[1]
 					cursor_y = split_result[2]
 					line_height = split_result[3]
 					has_line = split_result[4]
+					line_has_wrapped_text = true
 					continue
 
 			_apply_row_alignment(row_items, line_height)
@@ -423,11 +468,16 @@ func _layout_sequence(sequence: Array, x: float, y: float, width: float) -> floa
 			line_x = x
 			line_height = 0.0
 			has_line = false
+			line_has_wrapped_text = false
 
 		var text_start := _placed_views.size()
 		var panel_start := _panels.size()
 		var item_height := _place_block(block, line_x, cursor_y, item_width)
 		row_items.append([text_start, _placed_views.size(), panel_start, _panels.size(), item_height])
+
+		if block.kind == 0 and is_instance_valid(block.view) and block.view.get_line_count() > 1:
+			line_has_wrapped_text = true
+
 		line_x += item_width
 		line_height = maxf(line_height, item_height)
 		has_line = true
@@ -497,6 +547,9 @@ func _place_text(block: DocBlock, x: float, y: float, width: float) -> float:
 	return _place_text_view(view, x, y, width)
 
 func _get_preferred_width(block: DocBlock) -> float:
+	if block.kind == 3:
+		return 0.0
+
 	if block.kind == 0:
 		return _get_text_preferred_width(block)
 
@@ -653,6 +706,8 @@ func _parse(source: String) -> Array:
 	_src = source
 	_pos = 0
 	_buffer = ""
+	_open_tags.clear()
+	_buffer_start_tags.clear()
 	return _parse_sequence("")
 
 
@@ -662,17 +717,17 @@ func _parse_sequence(stop_tag: String) -> Array:
 	while _pos < _src.length():
 		var open := _src.find("[", _pos)
 		if open < 0:
-			_buffer += _src.substr(_pos)
+			_append_text_segment(_src.substr(_pos), children)
 			_pos = _src.length()
 			break
 
 		if open > _pos:
-			_buffer += _src.substr(_pos, open - _pos)
+			_append_text_segment(_src.substr(_pos, open - _pos), children)
 			_pos = open
 
 		var close := _src.find("]", _pos + 1)
 		if close < 0:
-			_buffer += _src.substr(_pos)
+			_append_text_segment(_src.substr(_pos), children)
 			_pos = _src.length()
 			break
 
@@ -711,49 +766,174 @@ func _parse_sequence(stop_tag: String) -> Array:
 			children.append(block)
 			continue
 
-		_buffer += raw
+		_append_standard_tag(name, closing, raw)
 
 	_flush_text(children)
 	return children
 
 
 
-func _can_split_plain_text(markup: String) -> bool:
-	if markup.contains("[") or markup.contains("\n") or markup.contains("\r"):
-		return false
+func _try_get_split_fragments(markup: String) -> Array:
+	var fragments: Array = []
 
-	var has_word := false
-	var has_whitespace := false
+	if markup.contains("\n") or markup.contains("\r"):
+		return fragments
 
-	for i in markup.length():
-		var code := markup.unicode_at(i)
-		if code == 32 or code == 9:
-			has_whitespace = true
-		else:
-			has_word = true
-
-	return has_word and has_whitespace
-
-
-func _split_words(markup: String) -> Array:
-	var words: Array = []
+	var open_names: Array = []
+	var open_raws: Array = []
+	var pending := ""
 	var i := 0
 
 	while i < markup.length():
-		var start := i
-		while i < markup.length() and (markup.unicode_at(i) == 32 or markup.unicode_at(i) == 9):
+		var code := markup.unicode_at(i)
+
+		if code == 91:
+			var close := markup.find("]", i + 1)
+			if close < 0:
+				return []
+
+			var raw := markup.substr(i, close - i + 1)
+			var inner := markup.substr(i + 1, close - i - 1)
+			var closing := inner.begins_with("/")
+			var name_start := 1 if closing else 0
+			var name_end := name_start
+
+			while name_end < inner.length() and inner.unicode_at(name_end) != 61 and inner.unicode_at(name_end) > 32:
+				name_end += 1
+
+			var name := inner.substr(name_start, name_end - name_start).strip_edges().to_lower()
+
+			if not closing and name == "img":
+				if pending.strip_edges().length() > 0 or (i > 0 and markup.unicode_at(i - 1) > 32):
+					return []
+
+				var image_close := markup.findn("[/img]", close + 1)
+				if image_close < 0:
+					return []
+
+				var image_end := image_close + 6
+				_flush_split_fragment(pending + markup.substr(i, image_end - i), open_names, open_raws, fragments)
+				pending = ""
+				i = image_end
+				continue
+
+			if not _is_safe_inline_tag(name):
+				return []
+
+			if closing:
+				if open_names.is_empty() or open_names[open_names.size() - 1] != name:
+					return []
+
+				if pending.length() > 0:
+					_flush_split_fragment(pending, open_names, open_raws, fragments)
+					pending = ""
+
+				open_names.pop_back()
+				open_raws.pop_back()
+			else:
+				if pending.strip_edges().length() > 0:
+					return []
+
+				open_names.append(name)
+				open_raws.append(raw)
+
+			i = close + 1
+			continue
+
+		if code == 32 or code == 9 or code == 10 or code == 13:
+			if pending.strip_edges().length() > 0:
+				_flush_split_fragment(pending, open_names, open_raws, fragments)
+				pending = ""
+
+			pending += markup.substr(i, 1)
+		else:
+			pending += markup.substr(i, 1)
+
+		i += 1
+
+	if not open_names.is_empty():
+		return []
+
+	if pending.length() > 0:
+		_flush_split_fragment(pending, open_names, open_raws, fragments)
+
+	return fragments if fragments.size() > 1 else []
+
+
+func _flush_split_fragment(text: String, open_names: Array, open_raws: Array, fragments: Array) -> void:
+	var markup := ""
+
+	for raw in open_raws:
+		markup += raw
+
+	markup += text
+
+	for i in range(open_names.size() - 1, -1, -1):
+		markup += "[/" + open_names[i] + "]"
+
+	fragments.append(markup)
+
+func _is_safe_inline_tag(name: String) -> bool:
+	if name in [
+		"b", "i", "u", "s",
+		"color", "bgcolor", "fgcolor",
+		"font", "font_size",
+		"outline_size", "outline_color",
+		"meta", "hint", "language", "code",
+		"wave", "shake", "tornado", "rainbow", "pulse", "fade",
+	]:
+		return true
+
+	for effect in custom_effects:
+		if effect != null and String(effect.get("bbcode")).to_lower() == name:
+			return true
+
+	return false
+
+
+func _append_text_segment(text: String, children: Array) -> void:
+	var start := 0
+	var i := 0
+
+	while i < text.length():
+		var code := text.unicode_at(i)
+
+		if code != 10 and code != 13:
+			i += 1
+			continue
+
+		if i > start:
+			_buffer += text.substr(start, i - start)
+
+		if code == 13 and i + 1 < text.length() and text.unicode_at(i + 1) == 10:
 			i += 1
 
-		var word_start := i
-		while i < markup.length() and markup.unicode_at(i) != 32 and markup.unicode_at(i) != 9:
-			i += 1
+		_flush_text(children)
+		var break_block := DocBlock.new()
+		break_block.kind = 3
+		children.append(break_block)
+		start = i + 1
+		i += 1
 
-		if i > word_start:
-			words.append(markup.substr(start, i - start))
-		elif i == markup.length() and words.size() > 0 and start < i:
-			words[words.size() - 1] += markup.substr(start)
+	if start < text.length():
+		_buffer += text.substr(start)
 
-	return words
+func _append_standard_tag(name: String, closing: bool, raw: String) -> void:
+	_buffer += raw
+
+	if closing:
+		for i in range(_open_tags.size() - 1, -1, -1):
+			if _open_tags[i]["name"] == name:
+				_open_tags.remove_at(i)
+				break
+		return
+
+	if name != "br" and name != "hr" and name != "lb" and name != "rb":
+		_open_tags.append({
+			"name": name,
+			"open": raw,
+			"close": "[/" + name + "]",
+		})
 
 func _flush_text(children: Array) -> void:
 	var raw := _buffer
@@ -763,12 +943,24 @@ func _flush_text(children: Array) -> void:
 		raw = _trim_newline_edges(raw)
 
 	if raw.is_empty():
+		_buffer_start_tags = _open_tags.duplicate(true)
 		return
+
+	var markup := ""
+
+	for tag in _buffer_start_tags:
+		markup += tag["open"]
+
+	markup += raw
+
+	for i in range(_open_tags.size() - 1, -1, -1):
+		markup += _open_tags[i]["close"]
 
 	var block := DocBlock.new()
 	block.kind = 0
-	block.markup = raw
+	block.markup = markup
 	children.append(block)
+	_buffer_start_tags = _open_tags.duplicate(true)
 
 
 func _parse_tag(inner: String) -> Array:
