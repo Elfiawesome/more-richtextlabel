@@ -1,0 +1,10 @@
+[gd_resource type="StyleBoxTexture" format=3 uid="uid://bq87doqj8gcuc"]
+
+[ext_resource type="Texture2D" uid="uid://cp65o0qfd0iyn" path="res://nine_slice_small_3x3.svg" id="1_5slsn"]
+
+[resource]
+texture = ExtResource("1_5slsn")
+texture_margin_left = 1.0
+texture_margin_top = 1.0
+texture_margin_right = 1.0
+texture_margin_bottom = 1.0
