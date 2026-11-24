@@ -55,8 +55,12 @@ public sealed class DocText : DocBlock
 public sealed class DocPanel : DocBlock
 {
     public StyleBox? Style { get; set; }
+    public Color Modulate { get; set; } = Colors.White;
     public DocSequence Content { get; } = new();
     public Rect2 Rect { get; set; }
+    public StyleBox? CachedModulatedStyle { get; set; }
+    public StyleBox? CachedModulatedSource { get; set; }
+    public Color CachedModulate { get; set; }
 
     public DocPanel()
     {
@@ -160,7 +164,7 @@ public sealed class BbcodeDocumentParser
             string inner = _source.Substring(_pos + 1, close - _pos - 1);
             _pos = close + 1;
 
-            ParseTag(inner, out string name, out bool isClosing, out string value);
+            ParseTag(inner, out string name, out bool isClosing, out string value, out string rest);
 
             if (name.Equals("panel", StringComparison.OrdinalIgnoreCase) ||
                 name.Equals("margin", StringComparison.OrdinalIgnoreCase))
@@ -182,7 +186,8 @@ public sealed class BbcodeDocumentParser
 
                 if (name.Equals("panel", StringComparison.OrdinalIgnoreCase))
                 {
-                    var panel = new DocPanel { Style = LoadStyle(value) };
+                    ParsePanelRest(rest, out string stylePath, out Color modulate);
+                    var panel = new DocPanel { Style = LoadStyle(stylePath), Modulate = modulate };
                     ParseSequence(panel.Content, "panel");
                     destination.Children.Add(panel);
                 }
@@ -272,10 +277,11 @@ public sealed class BbcodeDocumentParser
         _bufferStartTags = new List<OpenTag>(_openTags);
     }
 
-    private void ParseTag(string inner, out string name, out bool isClosing, out string value)
+    private void ParseTag(string inner, out string name, out bool isClosing, out string value, out string rest)
     {
         name = "";
         value = "";
+        rest = "";
         isClosing = inner.StartsWith('/');
 
         int start = isClosing ? 1 : 0;
@@ -287,6 +293,7 @@ public sealed class BbcodeDocumentParser
         }
 
         name = inner.Substring(start, end - start).Trim();
+        rest = inner.Substring(end).Trim();
 
         if (!isClosing)
         {
@@ -298,6 +305,70 @@ public sealed class BbcodeDocumentParser
         }
     }
 
+    private void ParsePanelRest(string rest, out string stylePath, out Color modulate)
+    {
+        stylePath = "";
+        modulate = Colors.White;
+
+        string body = rest.Trim();
+
+        if (body.StartsWith("="))
+        {
+            body = body.Substring(1).Trim();
+        }
+
+        body = StripPanelKey(body);
+
+        int modIndex = body.IndexOf("modulate=", StringComparison.OrdinalIgnoreCase);
+
+        if (modIndex >= 0)
+        {
+            string pathPart = body.Substring(0, modIndex).TrimEnd(' ', ',');
+            string modPart = body.Substring(modIndex + "modulate=".Length).Trim();
+
+            stylePath = CleanPanelPath(pathPart);
+
+            int tokenEnd = modPart.IndexOfAny(new[] { ' ', ',', '\t' });
+            string token = tokenEnd >= 0 ? modPart.Substring(0, tokenEnd) : modPart;
+
+            if (!string.IsNullOrWhiteSpace(token))
+            {
+                modulate = Color.FromString(token, Colors.White);
+            }
+        }
+        else
+        {
+            stylePath = CleanPanelPath(body);
+        }
+    }
+
+    private string StripPanelKey(string body)
+    {
+        string[] keys = { "panel=", "path=", "style=", "stylebox=" };
+
+        foreach (string key in keys)
+        {
+            if (body.StartsWith(key, StringComparison.OrdinalIgnoreCase))
+            {
+                return body.Substring(key.Length).Trim();
+            }
+        }
+
+        return body;
+    }
+
+    private string CleanPanelPath(string path)
+    {
+        string result = path.Trim();
+
+        if (result.StartsWith("="))
+        {
+            result = result.Substring(1).Trim();
+        }
+
+        result = result.TrimEnd(',', ' ').Trim();
+        return StripPanelKey(result);
+    }
     private StyleBox? LoadStyle(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -1320,6 +1391,74 @@ public partial class TextServerRichTextLabel : Control
         return panel.Style ?? _defaultPanelStyle ?? _emptyStyle;
     }
 
+    private StyleBox GetDrawPanelStyle(DocPanel panel)
+    {
+        StyleBox style = GetPanelStyle(panel);
+
+        if (panel.Modulate == Colors.White)
+        {
+            return style;
+        }
+
+        if (panel.CachedModulatedStyle != null &&
+            panel.CachedModulatedSource == style &&
+            panel.CachedModulate == panel.Modulate)
+        {
+            return panel.CachedModulatedStyle;
+        }
+
+        StyleBox? modulated = CreateModulatedStyle(style, panel.Modulate);
+        panel.CachedModulatedSource = style;
+        panel.CachedModulate = panel.Modulate;
+        panel.CachedModulatedStyle = modulated;
+        return modulated ?? style;
+    }
+
+    private StyleBox? CreateModulatedStyle(StyleBox style, Color modulate)
+    {
+        if (style is StyleBoxFlat flatSource)
+        {
+            var flat = (StyleBoxFlat)flatSource.Duplicate();
+            flat.BgColor = MultiplyColor(flat.BgColor, modulate);
+            flat.BorderColor = MultiplyColor(flat.BorderColor, modulate);
+            flat.ShadowColor = MultiplyColor(flat.ShadowColor, modulate);
+            return flat;
+        }
+
+        if (style is StyleBoxTexture textureSource)
+        {
+            var texture = (StyleBoxTexture)textureSource.Duplicate();
+            texture.ModulateColor = MultiplyColor(texture.ModulateColor, modulate);
+            return texture;
+        }
+
+        if (style is StyleBoxLine lineSource)
+        {
+            var line = (StyleBoxLine)lineSource.Duplicate();
+            line.Color = MultiplyColor(line.Color, modulate);
+            return line;
+        }
+
+        return null;
+    }
+
+    private Color MultiplyColor(Color color, Color modulate)
+    {
+        return new Color(
+            color.R * modulate.R,
+            color.G * modulate.G,
+            color.B * modulate.B,
+            color.A * modulate.A);
+    }
+
+    private void InvalidateModulatedStyles()
+    {
+        foreach (DocPanel panel in _panels)
+        {
+            panel.CachedModulatedStyle = null;
+            panel.CachedModulatedSource = null;
+        }
+    }
     private void UpdateStyleConnections()
     {
         var needed = new HashSet<StyleBox>();
@@ -1384,6 +1523,7 @@ public partial class TextServerRichTextLabel : Control
             return;
         }
 
+        InvalidateModulatedStyles();
         Relayout();
         QueueRedraw();
     }
@@ -1392,7 +1532,7 @@ public partial class TextServerRichTextLabel : Control
     {
         foreach (DocPanel panel in _panels)
         {
-            GetPanelStyle(panel).Draw(GetCanvasItem(), panel.Rect);
+            GetDrawPanelStyle(panel).Draw(GetCanvasItem(), panel.Rect);
         }
 
         foreach (TsTextBlock block in _placedBlocks)

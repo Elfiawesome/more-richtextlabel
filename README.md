@@ -12,6 +12,7 @@ The addon keeps RichTextLabel's text engine, so existing BBCode, images, built-i
 - `[panel]` shorthand using an exported default StyleBox.
 - Nested panels and margins.
 - Any `StyleBox`: `StyleBoxFlat`, `StyleBoxTexture`, 9-slice panels, custom StyleBox resources.
+- Per-panel modulation: `[panel=... modulate=#ffcc66]`.
 - Inline images with `[img=WxH]res://image.png[/img]`.
 - Full RichTextLabel formatting: bold, italics, colors, links, built-in effects.
 - Custom `RichTextEffect` support.
@@ -110,6 +111,32 @@ The detailed 9-slice panel uses its own content margins.
 
 Plain text after an inline panel fills the remaining line and wraps word-by-word.
 
+## Panel modulation
+
+Each panel can tint its StyleBox independently:
+
+![Panel modulation](docs/images/panel-modulation.png)
+
+```bbcode
+[panel=res://stylebox/pink_white_cornered.tres modulate=#ffcc66]Gold[/panel]
+[panel=res://stylebox/pink_white_cornered.tres modulate=#66ccff]Blue[/panel]
+[panel=res://stylebox/nine_slice_small.tres modulate=#66ff99]Green[/panel]
+[panel modulate=#cc99ff]Default style, tinted[/panel]
+```
+
+Supported forms:
+
+```bbcode
+[panel=res://stylebox.tres modulate=#ffcc66]...[/panel]
+[panel panel=res://stylebox.tres modulate=#ffcc66]...[/panel]
+[panel path=res://stylebox.tres modulate=#ffcc66]...[/panel]
+[panel modulate=#ffcc66]...[/panel]
+```
+
+The modulate value is a Godot color string, such as `#ffcc66`, `#ffcc66cc`, or `gold`.
+
+Modulation applies to the StyleBox itself: flat background, border and shadow colors, texture modulate color, and line color. Custom StyleBox subclasses that do not expose colors may ignore the modulation.
+
 ## Effects
 
 ![Effects](docs/images/effects.png)
@@ -182,7 +209,7 @@ Run the project or open:
 demo/Demo.tscn
 ```
 
-The demo covers inline panels, nested margins, StyleBoxes, images, built-in effects, custom effects, row alignment, and themes.
+The demo covers inline panels, nested margins, StyleBoxes, panel modulation, images, built-in effects, custom effects, row alignment, and themes.
 
 To regenerate the README images:
 

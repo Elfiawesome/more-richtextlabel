@@ -7,6 +7,8 @@ public partial class VisualDemo : Control
 {
     private const string Doc =
         "[panel=res://stylebox/black_red.tres]Short[/panel] same-line text after a hugging panel. " +
+        "[panel panel=res://stylebox/pink_white_cornered.tres modulate=#66ccff]Blue modulated[/panel] and [panel path=res://stylebox/nine_slice_small.tres modulate=#66ff99]green[/panel] panels. " +
+        "[panel modulate=#cc99ff]Default modulated[/panel] panel. " +
         "[b]Before the long panel[/b]: text is inline too. " +
         "[panel=res://stylebox/black_red.tres][margin=15][img=64x64]res://nine_slice_small_3x3.svg[/img] " +
         "Keyword with [b]Icon[/b] that is fit within the margins and panel. This sentence is long enough to wrap inside the panel and prove that the panel height grows with its content." +
@@ -66,18 +68,23 @@ public partial class VisualDemo : Control
         impl.Size = new Vector2(560, 1400);
         viewport.AddChild(impl);
 
+        var defaultStyle = GD.Load<StyleBox>("res://stylebox/pink_white_cornered.tres");
+
         if (impl is MoreRichTextLabel csharp)
         {
+            csharp.DefaultPanelStyle = defaultStyle;
             csharp.Text = Doc;
             csharp.ForceRelayout();
         }
         else if (impl is TextServerRichTextLabel textServer)
         {
+            textServer.DefaultPanelStyle = defaultStyle;
             textServer.Text = Doc;
             textServer.ForceRelayout();
         }
         else
         {
+            impl.Set("default_panel_style", defaultStyle);
             impl.Call("set_markup", Doc);
             impl.Call("force_relayout");
         }

@@ -100,10 +100,14 @@ class DocBlock:
 	var kind := 0 # 0 text, 1 panel, 2 margin
 	var markup := ""
 	var style: StyleBox
+	var modulate := Color.WHITE
 	var children: Array = []
 	var insets := Vector4.ZERO
 	var view: RichTextLabel
 	var rect := Rect2()
+	var cached_modulated_style: StyleBox
+	var cached_modulated_source: StyleBox
+	var cached_modulate := Color.WHITE
 
 
 func _ready() -> void:
@@ -534,6 +538,51 @@ func _get_panel_style(block: DocBlock) -> StyleBox:
 	return _empty_style
 
 
+func _get_draw_panel_style(block: DocBlock) -> StyleBox:
+	var style := _get_panel_style(block)
+
+	if block.modulate == Color.WHITE:
+		return style
+
+	if block.cached_modulated_style != null and block.cached_modulated_source == style and block.cached_modulate == block.modulate:
+		return block.cached_modulated_style
+
+	var modulated := _create_modulated_style(style, block.modulate)
+	block.cached_modulated_source = style
+	block.cached_modulate = block.modulate
+	block.cached_modulated_style = modulated
+	return modulated if modulated != null else style
+
+
+func _create_modulated_style(style: StyleBox, modulate: Color) -> StyleBox:
+	var copy := style.duplicate() as StyleBox
+
+	if copy is StyleBoxFlat:
+		copy.bg_color = _multiply_color(copy.bg_color, modulate)
+		copy.border_color = _multiply_color(copy.border_color, modulate)
+		copy.shadow_color = _multiply_color(copy.shadow_color, modulate)
+		return copy
+
+	if copy is StyleBoxTexture:
+		copy.modulate_color = _multiply_color(copy.modulate_color, modulate)
+		return copy
+
+	if copy is StyleBoxLine:
+		copy.color = _multiply_color(copy.color, modulate)
+		return copy
+
+	return null
+
+
+func _multiply_color(color: Color, modulate: Color) -> Color:
+	return Color(color.r * modulate.r, color.g * modulate.g, color.b * modulate.b, color.a * modulate.a)
+
+
+func _invalidate_modulated_styles() -> void:
+	for block in _panels:
+		block.cached_modulated_style = null
+		block.cached_modulated_source = null
+
 func _update_style_connections() -> void:
 	var needed: Array[StyleBox] = []
 
@@ -567,13 +616,14 @@ func _disconnect_style_signals() -> void:
 func _on_style_changed() -> void:
 	if not is_inside_tree():
 		return
+	_invalidate_modulated_styles()
 	_relayout()
 	queue_redraw()
 
 
 func _draw() -> void:
 	for block in _panels:
-		_get_panel_style(block).draw(get_canvas_item(), block.rect)
+		_get_draw_panel_style(block).draw(get_canvas_item(), block.rect)
 
 
 func _get_minimum_size() -> Vector2:
@@ -634,6 +684,7 @@ func _parse_sequence(stop_tag: String) -> Array:
 		var name: String = tag[0]
 		var closing: bool = tag[1]
 		var value: String = tag[2]
+		var rest := inner.substr(name.length()).strip_edges()
 
 		if name == "panel" or name == "margin":
 			if closing:
@@ -648,7 +699,9 @@ func _parse_sequence(stop_tag: String) -> Array:
 
 			if name == "panel":
 				block.kind = 1
-				block.style = _load_style(value)
+				var panel_options := _parse_panel_rest(rest)
+				block.style = _load_style(panel_options[0])
+				block.modulate = panel_options[1]
 				block.children = _parse_sequence("panel")
 			else:
 				block.kind = 2
@@ -754,6 +807,62 @@ func _trim_newline_edges(value: String) -> String:
 
 	return value.substr(start, finish - start)
 
+
+func _parse_panel_rest(rest: String) -> Array:
+	var body := rest.strip_edges()
+
+	if body.begins_with("="):
+		body = body.substr(1).strip_edges()
+
+	body = _strip_panel_key(body)
+
+	var mod_index := body.to_lower().find("modulate=")
+
+	if mod_index >= 0:
+		var path_part := body.substr(0, mod_index).strip_edges().trim_suffix(",").strip_edges()
+		var mod_part := body.substr(mod_index + "modulate=".length()).strip_edges()
+		var token := _first_option_token(mod_part)
+		var color := Color.WHITE
+
+		if not token.is_empty():
+			color = Color.from_string(token, Color.WHITE)
+
+		return [_clean_panel_path(path_part), color]
+
+	return [_clean_panel_path(body), Color.WHITE]
+
+
+func _strip_panel_key(body: String) -> String:
+	var lower := body.to_lower()
+
+	for key in ["panel=", "path=", "style=", "stylebox="]:
+		if lower.begins_with(key):
+			return body.substr(key.length()).strip_edges()
+
+	return body
+
+
+func _clean_panel_path(path: String) -> String:
+	var result := path.strip_edges()
+
+	if result.begins_with("="):
+		result = result.substr(1).strip_edges()
+
+	result = result.trim_suffix(",").strip_edges()
+	return _strip_panel_key(result)
+
+
+func _first_option_token(value: String) -> String:
+	var cut := value.length()
+	var space_index := value.find(" ")
+	var comma_index := value.find(",")
+
+	if space_index >= 0 and space_index < cut:
+		cut = space_index
+	if comma_index >= 0 and comma_index < cut:
+		cut = comma_index
+
+	return value.substr(0, cut)
 
 func _parse_margin(value: String) -> Vector4:
 	if value.is_empty():

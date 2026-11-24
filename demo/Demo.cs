@@ -16,6 +16,12 @@ public partial class Demo : Control
         "[b]Bold[/b], [i]italic[/i], [color=#ffcf70]colored[/color] text, and inline images " +
         "[img=24x24]res://icon.svg[/img] work inside.[/panel]";
 
+    internal const string ModulateDoc =
+        "[panel=res://stylebox/pink_white_cornered.tres modulate=#ffcc66]Gold[/panel] " +
+        "[panel panel=res://stylebox/pink_white_cornered.tres modulate=#66ccff]Blue[/panel] " +
+        "[panel path=res://stylebox/nine_slice_small.tres modulate=#66ff99]Green[/panel] " +
+        "[panel modulate=#cc99ff]Default[/panel] " +
+        "Each panel keeps its own StyleBox but applies a different modulation color.";
     internal const string EffectsDoc =
         "Built-in effects: [wave amp=10 freq=6]Wave[/wave] [shake]Shake[/shake] " +
         "[rainbow]Rainbow[/rainbow] [pulse]Pulse[/pulse]. " +
@@ -94,6 +100,8 @@ public partial class Demo : Control
         AddSection(column, "Inline panels and margins", InlineDoc, defaultStyle);
 
         AddSection(column, "Nine-slice panels", NineSliceDoc);
+
+        AddSection(column, "Panel modulation", ModulateDoc, defaultStyle);
 
         AddSection(column, "Built-in and custom effects", EffectsDoc, null, _effects);
 

@@ -19,6 +19,7 @@ public partial class CaptureScreenshots : Control
         await CaptureDoc("inline-panels", new Vector2I(900, 130), Demo.InlineDoc,
             GD.Load<StyleBox>("res://stylebox/pink_white_cornered.tres"), null);
         await CaptureDoc("nine-slice-panels", new Vector2I(900, 300), Demo.NineSliceDoc, null, null);
+        await CaptureDoc("panel-modulation", new Vector2I(900, 110), Demo.ModulateDoc, GD.Load<StyleBox>("res://stylebox/pink_white_cornered.tres"), null);
         await CaptureDoc("effects", new Vector2I(900, 100), Demo.EffectsDoc, null, _effects);
         await CaptureDoc("word-wrapping", new Vector2I(720, 100), "[panel=res://stylebox/black_red.tres]Tag[/panel] This plain text continues on the same line and then wraps word by word when it no longer fits the available width.", null, null);
         await CaptureAlignment();
@@ -29,7 +30,7 @@ public partial class CaptureScreenshots : Control
 
     private async System.Threading.Tasks.Task CaptureDemo()
     {
-        var viewport = CreateViewport(new Vector2I(1100, 1180));
+        var viewport = CreateViewport(new Vector2I(1100, 1310));
         var demo = GD.Load<PackedScene>("res://demo/Demo.tscn").Instantiate<Control>();
         viewport.AddChild(demo);
         await WaitFrames(10);
