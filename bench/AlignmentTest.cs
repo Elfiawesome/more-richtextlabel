@@ -1,5 +1,6 @@
 using Godot;
 using MoreRichTextLabelLib;
+using MoreRichTextLabelLib.Experimental;
 
 public partial class AlignmentTest : Control
 {
@@ -22,7 +23,7 @@ public partial class AlignmentTest : Control
         });
 
         _cellParent = viewport;
-        var gdScript = GD.Load<GDScript>("res://gdscript/more_rich_text_label_gd.gd");
+        var gdScript = GD.Load<GDScript>("res://addons/more_rich_text_label/MoreRichTextLabelGD.gd");
 
         for (int alignment = 0; alignment < 3; alignment++)
         {
@@ -77,7 +78,7 @@ public partial class AlignmentTest : Control
         }
         else if (control is TextServerRichTextLabel textServer)
         {
-            textServer.RowAlignment = (InlineRowAlignment)alignment;
+            textServer.RowAlignment = (TextServerRowAlignment)alignment;
             textServer.SetTextForced(Doc);
             textServer.ForceRelayoutAtWidth(188);
         }

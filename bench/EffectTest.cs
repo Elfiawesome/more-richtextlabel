@@ -54,7 +54,7 @@ public partial class EffectTest : Control
 
         GD.Print($"EffectTest: effects={control.CustomEffects.Count}, blocks={control.TextBlockCount}");
 
-        var gdScript = GD.Load<GDScript>("res://gdscript/more_rich_text_label_gd.gd");
+        var gdScript = GD.Load<GDScript>("res://addons/more_rich_text_label/MoreRichTextLabelGD.gd");
         var gd = (Control)gdScript.New();
         var gdViewport = new SubViewport
         {

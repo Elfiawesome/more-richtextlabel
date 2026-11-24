@@ -1,5 +1,6 @@
 using Godot;
 using MoreRichTextLabelLib;
+using MoreRichTextLabelLib.Experimental;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -33,7 +34,7 @@ public partial class RenderBenchmark : Control
 
     private static Control CreateGdScript()
     {
-        var script = GD.Load<GDScript>("res://gdscript/more_rich_text_label_gd.gd");
+        var script = GD.Load<GDScript>("res://addons/more_rich_text_label/MoreRichTextLabelGD.gd");
         return (Control)script.New();
     }
 

@@ -1,5 +1,6 @@
 using Godot;
 using MoreRichTextLabelLib;
+using MoreRichTextLabelLib.Experimental;
 
 public partial class InlineTest : Control
 {
@@ -81,7 +82,7 @@ public partial class InlineTest : Control
             Color = new Color(0.1f, 0.1f, 0.12f),
             Size = new Vector2(560, 220),
         });
-        var gdScript = GD.Load<GDScript>("res://gdscript/more_rich_text_label_gd.gd");
+        var gdScript = GD.Load<GDScript>("res://addons/more_rich_text_label/MoreRichTextLabelGD.gd");
         var gd = (Control)gdScript.New();
         gd.Position = new Vector2(10, 10);
         gd.Size = new Vector2(300, 200);

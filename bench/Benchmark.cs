@@ -1,5 +1,6 @@
 using Godot;
 using MoreRichTextLabelLib;
+using MoreRichTextLabelLib.Experimental;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -22,7 +23,7 @@ public partial class Benchmark : Control
         _cs = new MoreRichTextLabel { Position = Vector2.Zero, Size = new Vector2(Width, 4000) };
         AddChild(_cs);
 
-        _gdScript = GD.Load<GDScript>("res://gdscript/more_rich_text_label_gd.gd");
+        _gdScript = GD.Load<GDScript>("res://addons/more_rich_text_label/MoreRichTextLabelGD.gd");
         _gd = (Control)_gdScript.New();
         _gd.Position = Vector2.Zero;
         _gd.Size = new Vector2(Width, 4000);

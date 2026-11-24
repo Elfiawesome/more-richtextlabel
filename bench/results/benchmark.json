@@ -2,85 +2,85 @@
   "build repeats=1": {
     "iterations": 80,
     "csharp_leaf": {
-      "Median": 1.495,
-      "Mean": 1.7894249999999992,
-      "Min": 1.064,
-      "Max": 4.273
+      "Median": 1.397,
+      "Mean": 1.9004374999999993,
+      "Min": 1.094,
+      "Max": 7.935
     },
     "gdscript_leaf": {
-      "Median": 1.628,
-      "Mean": 1.9580999999999995,
-      "Min": 1.114,
-      "Max": 5.563
+      "Median": 1.469,
+      "Mean": 2.0247,
+      "Min": 1.1,
+      "Max": 7.996
     },
     "csharp_textserver": {
-      "Median": 0.931,
-      "Mean": 1.152725,
-      "Min": 0.559,
-      "Max": 3.362
+      "Median": 0.907,
+      "Mean": 1.0709374999999999,
+      "Min": 0.627,
+      "Max": 6.336
     }
   },
   "build repeats=20": {
     "iterations": 20,
     "csharp_leaf": {
-      "Median": 47.106,
-      "Mean": 48.84095,
-      "Min": 30.708,
-      "Max": 83.53
+      "Median": 43.986,
+      "Mean": 46.69515,
+      "Min": 32.9,
+      "Max": 75.411
     },
     "gdscript_leaf": {
-      "Median": 48.979,
-      "Mean": 49.31575000000001,
-      "Min": 31.382,
-      "Max": 84.33
+      "Median": 48.063,
+      "Mean": 52.04385,
+      "Min": 34.695,
+      "Max": 93.387
     },
     "csharp_textserver": {
-      "Median": 22.29,
-      "Mean": 23.727400000000003,
-      "Min": 13.151,
-      "Max": 45.763
+      "Median": 19.975,
+      "Mean": 23.609150000000003,
+      "Min": 14.189,
+      "Max": 57.324
     }
   },
   "build repeats=80": {
     "iterations": 6,
     "csharp_leaf": {
-      "Median": 246.959,
-      "Mean": 260.2963333333333,
-      "Min": 199.608,
-      "Max": 325.302
+      "Median": 208.707,
+      "Mean": 228.09266666666667,
+      "Min": 177.785,
+      "Max": 284.585
     },
     "gdscript_leaf": {
-      "Median": 222.524,
-      "Mean": 247.22633333333332,
-      "Min": 206.167,
-      "Max": 340.465
+      "Median": 250.667,
+      "Mean": 247.64983333333336,
+      "Min": 183.613,
+      "Max": 314.923
     },
     "csharp_textserver": {
-      "Median": 84.651,
-      "Mean": 95.53566666666666,
-      "Min": 81.565,
-      "Max": 142.245
+      "Median": 103.476,
+      "Mean": 109.22166666666665,
+      "Min": 86.44,
+      "Max": 140.819
     }
   },
   "relayout repeats=40": {
     "iterations": 120,
     "csharp_leaf": {
-      "Median": 9.885,
-      "Mean": 9.858849999999999,
-      "Min": 5.584,
-      "Max": 23.616
+      "Median": 8.648,
+      "Mean": 9.116025000000006,
+      "Min": 5.12,
+      "Max": 49.899
     },
     "gdscript_leaf": {
-      "Median": 14.29,
-      "Mean": 14.85605833333333,
-      "Min": 8.174,
-      "Max": 38.259
+      "Median": 13.775,
+      "Mean": 13.492725000000002,
+      "Min": 7.45,
+      "Max": 19.214
     },
     "csharp_textserver": {
-      "Median": 5.085,
-      "Mean": 5.043699999999999,
-      "Min": 2.818,
-      "Max": 7.631
+      "Median": 4.13,
+      "Mean": 5.016833333333335,
+      "Min": 2.778,
+      "Max": 18.763
     }
   },
   "nodes": {

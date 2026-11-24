@@ -93,7 +93,7 @@ var _src := ""
 var _pos := 0
 var _buffer := ""
 
-static var _style_cache := {}
+var _style_cache := {}
 
 
 class DocBlock:

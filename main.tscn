@@ -1,9 +1,9 @@
 [gd_scene format=3 uid="uid://m0bfsjgqrder"]
 
 [ext_resource type="Script" uid="uid://dlhlsisheac2p" path="res://Main.cs" id="1_ig7tw"]
-[ext_resource type="Script" uid="uid://cvhd6w5loyy2g" path="res://src/MoreRichTextLabel.cs" id="2_0xm2m"]
-[ext_resource type="Script" uid="uid://btwg38yeeh8rc" path="res://gdscript/more_rich_text_label_gd.gd" id="2_1bvp3"]
-[ext_resource type="Script" uid="uid://b88pd137wr148" path="res://src/TextServerRichTextLabel.cs" id="3_h2yge"]
+[ext_resource type="Script" uid="uid://cvhd6w5loyy2g" path="res://addons/more_rich_text_label/MoreRichTextLabel.cs" id="2_0xm2m"]
+[ext_resource type="Script" uid="uid://btwg38yeeh8rc" path="res://addons/more_rich_text_label/MoreRichTextLabelGD.gd" id="2_1bvp3"]
+[ext_resource type="Script" uid="uid://b88pd137wr148" path="res://addons/more_rich_text_label/experimental/TextServerRichTextLabel.cs" id="3_h2yge"]
 
 [node name="Main" type="Control" unique_id=1978290373]
 layout_mode = 3

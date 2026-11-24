@@ -1,5 +1,6 @@
 using Godot;
 using MoreRichTextLabelLib;
+using MoreRichTextLabelLib.Experimental;
 using System.IO;
 
 public partial class VisualDemo : Control
@@ -36,7 +37,7 @@ public partial class VisualDemo : Control
 
     private static Control CreateGdScript()
     {
-        var script = GD.Load<GDScript>("res://gdscript/more_rich_text_label_gd.gd");
+        var script = GD.Load<GDScript>("res://addons/more_rich_text_label/MoreRichTextLabelGD.gd");
         return (Control)script.New();
     }
 

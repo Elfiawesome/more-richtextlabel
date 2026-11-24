@@ -1,5 +1,6 @@
 using Godot;
 using MoreRichTextLabelLib;
+using MoreRichTextLabelLib.Experimental;
 using System.Text;
 
 public partial class SmokeTest : Control
@@ -21,7 +22,7 @@ public partial class SmokeTest : Control
         };
         AddChild(cs);
 
-        var gdScript = GD.Load<GDScript>("res://gdscript/more_rich_text_label_gd.gd");
+        var gdScript = GD.Load<GDScript>("res://addons/more_rich_text_label/MoreRichTextLabelGD.gd");
         var gd = (Control)gdScript.New();
         gd.Position = new Vector2(0, 0);
         gd.Size = new Vector2(500, 1000);

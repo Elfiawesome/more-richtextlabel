@@ -1,8 +1,407 @@
+// MoreRichTextLabel - drop-in C# control for Godot 4.7+
+//
+// Copy this single file into your project and attach MoreRichTextLabel.cs
+// to a Control node. It supports:
+//
+//   [panel=res://path/to/stylebox.tres]content[/panel]
+//   [panel]content[/panel]                  (uses DefaultPanelStyle)
+//   [margin=10]content[/margin]
+//
+// Panels/margins are inline boxes: they hug their content and surrounding
+// plain text continues on the same line, wrapping word by word when needed.
+// Standard RichTextLabel BBCode, images, built-in effects and custom
+// RichTextEffects are supported through internal RichTextLabels.
+//
+// The experimental static TextServer renderer lives in Experimental/ and is
+// not required for this control.
+
 using Godot;
+using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 
 namespace MoreRichTextLabelLib;
+// ---------------------------------------------------------------------------
+// Document model
+// ---------------------------------------------------------------------------
+
+public enum DocBlockKind
+{
+    Sequence,
+    Text,
+    Panel,
+    Margin,
+}
+
+public abstract class DocBlock
+{
+    public DocBlockKind Kind { get; protected set; }
+}
+
+public sealed class DocSequence : DocBlock
+{
+    public List<DocBlock> Children { get; } = new();
+
+    public DocSequence()
+    {
+        Kind = DocBlockKind.Sequence;
+    }
+}
+
+public sealed class DocText : DocBlock
+{
+    public string Markup { get; set; } = "";
+
+    // Used by the RichTextLabel-leaf implementations.
+    public RichTextLabel? View { get; set; }
+
+    public DocText()
+    {
+        Kind = DocBlockKind.Text;
+    }
+}
+
+public sealed class DocPanel : DocBlock
+{
+    public StyleBox? Style { get; set; }
+    public DocSequence Content { get; } = new();
+    public Rect2 Rect { get; set; }
+
+    public DocPanel()
+    {
+        Kind = DocBlockKind.Panel;
+    }
+}
+
+public sealed class DocMargin : DocBlock
+{
+    public float Left { get; set; }
+    public float Top { get; set; }
+    public float Right { get; set; }
+    public float Bottom { get; set; }
+    public DocSequence Content { get; } = new();
+
+    public DocMargin()
+    {
+        Kind = DocBlockKind.Margin;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Inline text utilities
+// ---------------------------------------------------------------------------
+
+
+// ---------------------------------------------------------------------------
+// BBCode document parser
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// Splits a BBCode string into block nodes. Only [panel] and [margin] are custom block tags;
+/// all other BBCode is preserved for the text renderer.
+/// </summary>
+public sealed class BbcodeDocumentParser
+{
+    private sealed class OpenTag
+    {
+        public string Name = "";
+        public string RawOpen = "";
+        public string RawClose = "";
+    }
+
+    private readonly HashSet<string> VoidTags = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "br", "hr", "lb", "rb",
+    };
+
+    private readonly Dictionary<string, StyleBox?> _styleCache = new(StringComparer.Ordinal);
+
+    private readonly string _source;
+    private readonly bool _trimBlockWhitespace;
+    private readonly StringBuilder _buffer = new();
+    private readonly List<OpenTag> _openTags = new();
+    private List<OpenTag> _bufferStartTags = new();
+    private int _pos;
+
+    public BbcodeDocumentParser(string source, bool trimBlockWhitespace)
+    {
+        _source = source;
+        _trimBlockWhitespace = trimBlockWhitespace;
+    }
+
+    public DocSequence ParseDocument()
+    {
+        var root = new DocSequence();
+        ParseSequence(root, null);
+        return root;
+    }
+
+    private void ParseSequence(DocSequence destination, string? stopTag)
+    {
+        while (_pos < _source.Length)
+        {
+            int open = _source.IndexOf('[', _pos);
+            if (open < 0)
+            {
+                _buffer.Append(_source, _pos, _source.Length - _pos);
+                _pos = _source.Length;
+                break;
+            }
+
+            if (open > _pos)
+            {
+                _buffer.Append(_source, _pos, open - _pos);
+                _pos = open;
+            }
+
+            int close = _source.IndexOf(']', _pos + 1);
+            if (close < 0)
+            {
+                _buffer.Append(_source, _pos, _source.Length - _pos);
+                _pos = _source.Length;
+                break;
+            }
+
+            string raw = _source.Substring(_pos, close - _pos + 1);
+            string inner = _source.Substring(_pos + 1, close - _pos - 1);
+            _pos = close + 1;
+
+            ParseTag(inner, out string name, out bool isClosing, out string value);
+
+            if (name.Equals("panel", StringComparison.OrdinalIgnoreCase) ||
+                name.Equals("margin", StringComparison.OrdinalIgnoreCase))
+            {
+                if (isClosing)
+                {
+                    if (stopTag != null && name.Equals(stopTag, StringComparison.OrdinalIgnoreCase))
+                    {
+                        FlushText(destination);
+                        return;
+                    }
+
+                    // Unmatched custom closing tag: keep it as literal text.
+                    _buffer.Append(raw);
+                    continue;
+                }
+
+                FlushText(destination);
+
+                if (name.Equals("panel", StringComparison.OrdinalIgnoreCase))
+                {
+                    var panel = new DocPanel { Style = LoadStyle(value) };
+                    ParseSequence(panel.Content, "panel");
+                    destination.Children.Add(panel);
+                }
+                else
+                {
+                    var margin = new DocMargin();
+                    ApplyMargin(margin, value);
+                    ParseSequence(margin.Content, "margin");
+                    destination.Children.Add(margin);
+                }
+
+                continue;
+            }
+
+            AppendStandardTag(name, isClosing, raw);
+        }
+
+        FlushText(destination);
+    }
+
+    private void AppendStandardTag(string name, bool isClosing, string raw)
+    {
+        if (isClosing)
+        {
+            _buffer.Append(raw);
+
+            for (int i = _openTags.Count - 1; i >= 0; i--)
+            {
+                if (_openTags[i].Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+                {
+                    _openTags.RemoveAt(i);
+                    break;
+                }
+            }
+
+            return;
+        }
+
+        _buffer.Append(raw);
+
+        if (!VoidTags.Contains(name))
+        {
+            _openTags.Add(new OpenTag
+            {
+                Name = name,
+                RawOpen = raw,
+                RawClose = $"[/{name}]",
+            });
+        }
+    }
+
+    private void FlushText(DocSequence destination)
+    {
+        if (_buffer.Length == 0)
+        {
+            _bufferStartTags = new List<OpenTag>(_openTags);
+            return;
+        }
+
+        string raw = _buffer.ToString();
+        _buffer.Clear();
+
+        if (_trimBlockWhitespace)
+        {
+            raw = raw.Trim('\t', '\r', '\n');
+        }
+
+        if (raw.Length > 0)
+        {
+            var markup = new StringBuilder(raw.Length + 32);
+
+            foreach (OpenTag tag in _bufferStartTags)
+            {
+                markup.Append(tag.RawOpen);
+            }
+
+            markup.Append(raw);
+
+            for (int i = _openTags.Count - 1; i >= 0; i--)
+            {
+                markup.Append(_openTags[i].RawClose);
+            }
+
+            destination.Children.Add(new DocText { Markup = markup.ToString() });
+        }
+
+        _bufferStartTags = new List<OpenTag>(_openTags);
+    }
+
+    private void ParseTag(string inner, out string name, out bool isClosing, out string value)
+    {
+        name = "";
+        value = "";
+        isClosing = inner.StartsWith('/');
+
+        int start = isClosing ? 1 : 0;
+        int end = start;
+
+        while (end < inner.Length && inner[end] != '=' && !char.IsWhiteSpace(inner[end]))
+        {
+            end++;
+        }
+
+        name = inner.Substring(start, end - start).Trim();
+
+        if (!isClosing)
+        {
+            int equals = inner.IndexOf('=');
+            if (equals >= 0)
+            {
+                value = inner.Substring(equals + 1).Trim();
+            }
+        }
+    }
+
+    private StyleBox? LoadStyle(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        if (_styleCache.TryGetValue(path, out StyleBox? cached))
+        {
+            return cached;
+        }
+
+        StyleBox? style = null;
+
+        try
+        {
+            if (ResourceLoader.Exists(path))
+            {
+                style = ResourceLoader.Load<StyleBox>(path);
+            }
+        }
+        catch (Exception exception)
+        {
+            GD.PushWarning($"MoreRichTextLabel: failed to load StyleBox '{path}': {exception.Message}");
+        }
+
+        if (style == null)
+        {
+            GD.PushWarning($"MoreRichTextLabel: StyleBox not found or wrong type: {path}");
+        }
+
+        _styleCache[path] = style;
+        return style;
+    }
+
+    private void ApplyMargin(DocMargin margin, string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            SetMargin(margin, 0);
+            return;
+        }
+
+        string[] parts = value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (!TryFloat(parts, 0, out float first))
+        {
+            GD.PushWarning($"MoreRichTextLabel: invalid margin value '{value}'");
+            SetMargin(margin, 0);
+            return;
+        }
+
+        switch (parts.Length)
+        {
+            case 1:
+                SetMargin(margin, first);
+                break;
+
+            case 2 when TryFloat(parts, 1, out float second):
+                margin.Left = first;
+                margin.Right = first;
+                margin.Top = second;
+                margin.Bottom = second;
+                break;
+
+            case 4 when TryFloat(parts, 1, out float top) &&
+                        TryFloat(parts, 2, out float right) &&
+                        TryFloat(parts, 3, out float bottom):
+                margin.Left = first;
+                margin.Top = top;
+                margin.Right = right;
+                margin.Bottom = bottom;
+                break;
+
+            default:
+                GD.PushWarning($"MoreRichTextLabel: invalid margin value '{value}'");
+                SetMargin(margin, first);
+                break;
+        }
+    }
+
+    private bool TryFloat(string[] parts, int index, out float value)
+    {
+        return float.TryParse(parts[index], NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+    }
+
+    private void SetMargin(DocMargin margin, float value)
+    {
+        margin.Left = value;
+        margin.Top = value;
+        margin.Right = value;
+        margin.Bottom = value;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MoreRichTextLabel control
+// ---------------------------------------------------------------------------
 
 public enum InlineRowAlignment
 {
@@ -17,6 +416,7 @@ public enum InlineRowAlignment
 /// children so the full RichTextLabel feature set (including RichTextEffects) remains available.
 /// </summary>
 [Tool]
+[GlobalClass]
 public partial class MoreRichTextLabel : Control
 {
     [Export(PropertyHint.MultilineText)]
@@ -148,7 +548,7 @@ public partial class MoreRichTextLabel : Control
         }
     }
 
-    private static readonly StyleBoxEmpty EmptyStyle = new();
+    private readonly StyleBoxEmpty _emptyStyle = new();
 
     private string _text = "";
     private InlineRowAlignment _rowAlignment = InlineRowAlignment.Top;
@@ -220,7 +620,7 @@ public partial class MoreRichTextLabel : Control
         }
 
         _splitViews.Clear();
-        _root = BbcodeDocumentParser.Parse(_text, TrimBlockWhitespace);
+        _root = new BbcodeDocumentParser(_text, TrimBlockWhitespace).ParseDocument();
         CreateViews(_root);
         Relayout();
     }
@@ -277,7 +677,7 @@ public partial class MoreRichTextLabel : Control
             ClipContents = false,
         };
 
-        leaf.AddThemeStyleboxOverride("normal", EmptyStyle);
+        leaf.AddThemeStyleboxOverride("normal", _emptyStyle);
 
         foreach (RichTextEffect effect in _customEffects)
         {
@@ -469,13 +869,13 @@ public partial class MoreRichTextLabel : Control
             Visible = false,
         };
 
-        leaf.AddThemeStyleboxOverride("normal", EmptyStyle);
+        leaf.AddThemeStyleboxOverride("normal", _emptyStyle);
         ConfigureLeafInput(leaf);
         AddChild(leaf, false, InternalMode.Front);
         return leaf;
     }
 
-    private static float GetViewPreferredWidth(RichTextLabel view)
+    private float GetViewPreferredWidth(RichTextLabel view)
     {
         if (!IsInstanceValid(view))
         {
@@ -521,7 +921,7 @@ public partial class MoreRichTextLabel : Control
         ref float lineHeight,
         ref bool hasLine)
     {
-        List<string> words = InlineTextUtil.SplitWords(text.Markup);
+        List<string> words = SplitWords(text.Markup);
         if (words.Count < 2)
         {
             return false;
@@ -604,6 +1004,66 @@ public partial class MoreRichTextLabel : Control
         hasLine = true;
         return true;
     }
+    private bool CanSplitPlainText(string markup)
+    {
+        if (markup.IndexOf('[') >= 0 ||
+            markup.IndexOf('\n') >= 0 ||
+            markup.IndexOf('\r') >= 0)
+        {
+            return false;
+        }
+
+        bool hasWord = false;
+        bool hasWhitespace = false;
+
+        foreach (char c in markup)
+        {
+            if (char.IsWhiteSpace(c))
+            {
+                hasWhitespace = true;
+            }
+            else
+            {
+                hasWord = true;
+            }
+        }
+
+        return hasWord && hasWhitespace;
+    }
+
+    private List<string> SplitWords(string markup)
+    {
+        var words = new List<string>();
+        int i = 0;
+
+        while (i < markup.Length)
+        {
+            int start = i;
+
+            while (i < markup.Length && char.IsWhiteSpace(markup[i]))
+            {
+                i++;
+            }
+
+            int wordStart = i;
+
+            while (i < markup.Length && !char.IsWhiteSpace(markup[i]))
+            {
+                i++;
+            }
+
+            if (i > wordStart)
+            {
+                words.Add(markup.Substring(start, i - start));
+            }
+            else if (i == markup.Length && words.Count > 0 && start < i)
+            {
+                words[words.Count - 1] += markup.Substring(start);
+            }
+        }
+
+        return words;
+    }
     private float LayoutSequence(DocSequence sequence, float x, float y, float width)
     {
         float cursorY = y;
@@ -640,7 +1100,7 @@ public partial class MoreRichTextLabel : Control
 
             if (hasLine && lineX + itemWidth > x + width)
             {
-                if (block is DocText splitText && InlineTextUtil.CanSplit(splitText.Markup) &&
+                if (block is DocText splitText && CanSplitPlainText(splitText.Markup) &&
                     TryPlaceSplitText(splitText, x, width, rowItems, ref lineX, ref cursorY, ref lineHeight, ref hasLine))
                 {
                     continue;
@@ -819,13 +1279,13 @@ public partial class MoreRichTextLabel : Control
         return preferred;
     }
 
-    private static bool IsBlockText(DocText text)
+    private bool IsBlockText(DocText text)
     {
         return text.Markup.IndexOf('\n') >= 0 || text.Markup.IndexOf('\r') >= 0;
     }
     private StyleBox GetPanelStyle(DocPanel panel)
     {
-        return panel.Style ?? _defaultPanelStyle ?? EmptyStyle;
+        return panel.Style ?? _defaultPanelStyle ?? _emptyStyle;
     }
 
     private void UpdateStyleConnections()
@@ -840,7 +1300,7 @@ public partial class MoreRichTextLabel : Control
         foreach (DocPanel panel in _panels)
         {
             StyleBox style = GetPanelStyle(panel);
-            if (style != EmptyStyle)
+            if (style != _emptyStyle)
             {
                 needed.Add(style);
             }
@@ -942,3 +1402,4 @@ public partial class MoreRichTextLabel : Control
         }
     }
 }
+
