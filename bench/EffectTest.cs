@@ -10,10 +10,10 @@ public partial class EffectTest : Control
 
     public override async void _Ready()
     {
-        var effect = GD.Load<RichTextEffect>("res://bench/effects/demo_pulse.tres");
+        var effect = GD.Load<RichTextEffect>("res://demo/effects/DemoPulseEffect.tres");
         if (effect == null)
         {
-            GD.PushError("EffectTest: failed to load demo_pulse.tres");
+            GD.PushError("EffectTest: failed to load DemoPulseEffect.tres");
             GetTree().Quit();
             return;
         }

@@ -451,8 +451,7 @@ public sealed class TsBBCodeParser
             TextServer.LineBreakFlag.WordBound |
             TextServer.LineBreakFlag.Adaptive |
             TextServer.LineBreakFlag.Mandatory |
-            TextServer.LineBreakFlag.TrimStartEdgeSpaces |
-            TextServer.LineBreakFlag.TrimEndEdgeSpaces;
+            TextServer.LineBreakFlag.TrimStartEdgeSpaces;
         paragraph.LineSpacing = _lineSpacing;
         paragraph.Alignment = HorizontalAlignment.Left;
         paragraph.Width = 1.0f;

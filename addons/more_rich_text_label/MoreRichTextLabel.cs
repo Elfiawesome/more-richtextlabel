@@ -674,6 +674,7 @@ public partial class MoreRichTextLabel : Control
             FitContent = false,
             ScrollActive = false,
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            AutowrapTrimFlags = TextServer.LineBreakFlag.TrimStartEdgeSpaces,
             ClipContents = false,
         };
 
@@ -865,6 +866,7 @@ public partial class MoreRichTextLabel : Control
             FitContent = false,
             ScrollActive = false,
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            AutowrapTrimFlags = TextServer.LineBreakFlag.TrimStartEdgeSpaces,
             ClipContents = false,
             Visible = false,
         };

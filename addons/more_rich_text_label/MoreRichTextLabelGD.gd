@@ -197,6 +197,7 @@ func _create_leaf(block: DocBlock) -> void:
 	leaf.fit_content = false
 	leaf.scroll_active = false
 	leaf.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	leaf.autowrap_trim_flags = TextServer.BREAK_TRIM_START_EDGE_SPACES
 	leaf.clip_contents = false
 	leaf.add_theme_stylebox_override("normal", _empty_style)
 

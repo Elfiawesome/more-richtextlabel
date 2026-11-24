@@ -23,7 +23,7 @@ public partial class EditorDemo : Control
             return;
         }
 
-        var effect = GD.Load<RichTextEffect>("res://bench/effects/demo_pulse.tres");
+        var effect = GD.Load<RichTextEffect>("res://demo/effects/DemoPulseEffect.tres");
         if (effect != null)
         {
             label.CustomEffects = new Godot.Collections.Array<RichTextEffect> { effect };
