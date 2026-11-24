@@ -1,5 +1,10 @@
 [gd_scene format=3 uid="uid://m0bfsjgqrder"]
 
+[ext_resource type="Script" uid="uid://dlhlsisheac2p" path="res://Main.cs" id="1_ig7tw"]
+[ext_resource type="Script" uid="uid://cvhd6w5loyy2g" path="res://src/MoreRichTextLabel.cs" id="2_0xm2m"]
+[ext_resource type="Script" uid="uid://btwg38yeeh8rc" path="res://gdscript/more_rich_text_label_gd.gd" id="2_1bvp3"]
+[ext_resource type="Script" uid="uid://b88pd137wr148" path="res://src/TextServerRichTextLabel.cs" id="3_h2yge"]
+
 [node name="Main" type="Control" unique_id=1978290373]
 layout_mode = 3
 anchors_preset = 15
@@ -7,3 +12,87 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+script = ExtResource("1_ig7tw")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=945391587]
+layout_mode = 1
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_right = 516.0
+grow_vertical = 2
+theme_override_constants/separation = 15
+
+[node name="MoreRichTextGD" type="MarginContainer" parent="VBoxContainer" unique_id=1457502436]
+layout_mode = 2
+
+[node name="Panel" type="Panel" parent="VBoxContainer/MoreRichTextGD" unique_id=1380203073]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/MoreRichTextGD" unique_id=26652957]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="VBoxContainer/MoreRichTextGD/VBoxContainer" unique_id=1410386788]
+layout_mode = 2
+text = "more_rich_text_label gd"
+
+[node name="Control" type="Control" parent="VBoxContainer/MoreRichTextGD/VBoxContainer" unique_id=1484839296]
+layout_mode = 2
+script = ExtResource("2_1bvp3")
+text = "[margin=10][b][wave amp=300]Hello[/wave][/b] world[/margin]Hello World This text is noting"
+trim_block_whitespace = true
+
+[node name="TextServerRichText" type="MarginContainer" parent="VBoxContainer" unique_id=602471924]
+layout_mode = 2
+
+[node name="Panel" type="Panel" parent="VBoxContainer/TextServerRichText" unique_id=1525068959]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/TextServerRichText" unique_id=1654773535]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="VBoxContainer/TextServerRichText/VBoxContainer" unique_id=529067135]
+layout_mode = 2
+text = "TextServerRichTextLabel"
+
+[node name="TextServerRichTextLabel" type="Control" parent="VBoxContainer/TextServerRichText/VBoxContainer" unique_id=453756140]
+layout_mode = 2
+script = ExtResource("3_h2yge")
+Text = "[margin=10][b][wave amp=300]Hello[/wave][/b] world[/margin]Hello World This text is noting"
+
+[node name="MoreRichText" type="MarginContainer" parent="VBoxContainer" unique_id=351214529]
+layout_mode = 2
+
+[node name="Panel" type="Panel" parent="VBoxContainer/MoreRichText" unique_id=100786590]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/MoreRichText" unique_id=640870268]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="VBoxContainer/MoreRichText/VBoxContainer" unique_id=746919739]
+layout_mode = 2
+text = "MoreRichTextLabel"
+
+[node name="Control" type="Control" parent="VBoxContainer/MoreRichText/VBoxContainer" unique_id=1050442019]
+layout_mode = 2
+script = ExtResource("2_0xm2m")
+Text = "[margin=10][b][wave amp=300]Hello[/wave][/b] world[/margin]Hello World This text is noting"
+
+[node name="RichTextLabel" type="MarginContainer" parent="VBoxContainer" unique_id=324585666]
+layout_mode = 2
+
+[node name="Panel" type="Panel" parent="VBoxContainer/RichTextLabel" unique_id=158777991]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/RichTextLabel" unique_id=2111139446]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="VBoxContainer/RichTextLabel/VBoxContainer" unique_id=1056393562]
+layout_mode = 2
+text = "Normal RichTextLabel"
+
+[node name="RichTextLabel" type="RichTextLabel" parent="VBoxContainer/RichTextLabel/VBoxContainer" unique_id=1739127657]
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+bbcode_enabled = true
+text = "[wave]Hey[/wave]"
+scroll_active = false

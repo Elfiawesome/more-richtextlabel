@@ -1,0 +1,113 @@
+{
+  "build repeats=1": {
+    "iterations": 80,
+    "csharp_leaf": {
+      "Median": 1.495,
+      "Mean": 1.7894249999999992,
+      "Min": 1.064,
+      "Max": 4.273
+    },
+    "gdscript_leaf": {
+      "Median": 1.628,
+      "Mean": 1.9580999999999995,
+      "Min": 1.114,
+      "Max": 5.563
+    },
+    "csharp_textserver": {
+      "Median": 0.931,
+      "Mean": 1.152725,
+      "Min": 0.559,
+      "Max": 3.362
+    }
+  },
+  "build repeats=20": {
+    "iterations": 20,
+    "csharp_leaf": {
+      "Median": 47.106,
+      "Mean": 48.84095,
+      "Min": 30.708,
+      "Max": 83.53
+    },
+    "gdscript_leaf": {
+      "Median": 48.979,
+      "Mean": 49.31575000000001,
+      "Min": 31.382,
+      "Max": 84.33
+    },
+    "csharp_textserver": {
+      "Median": 22.29,
+      "Mean": 23.727400000000003,
+      "Min": 13.151,
+      "Max": 45.763
+    }
+  },
+  "build repeats=80": {
+    "iterations": 6,
+    "csharp_leaf": {
+      "Median": 246.959,
+      "Mean": 260.2963333333333,
+      "Min": 199.608,
+      "Max": 325.302
+    },
+    "gdscript_leaf": {
+      "Median": 222.524,
+      "Mean": 247.22633333333332,
+      "Min": 206.167,
+      "Max": 340.465
+    },
+    "csharp_textserver": {
+      "Median": 84.651,
+      "Mean": 95.53566666666666,
+      "Min": 81.565,
+      "Max": 142.245
+    }
+  },
+  "relayout repeats=40": {
+    "iterations": 120,
+    "csharp_leaf": {
+      "Median": 9.885,
+      "Mean": 9.858849999999999,
+      "Min": 5.584,
+      "Max": 23.616
+    },
+    "gdscript_leaf": {
+      "Median": 14.29,
+      "Mean": 14.85605833333333,
+      "Min": 8.174,
+      "Max": 38.259
+    },
+    "csharp_textserver": {
+      "Median": 5.085,
+      "Mean": 5.043699999999999,
+      "Min": 2.818,
+      "Max": 7.631
+    }
+  },
+  "nodes": {
+    "csharp_leaf": 201,
+    "gdscript_leaf": 201,
+    "csharp_textserver": 1
+  },
+  "content_height": {
+    "csharp_leaf": 8280,
+    "gdscript_leaf": 8280,
+    "csharp_textserver": 8280
+  },
+  "height_parity": {
+    "560": {
+      "csharp_leaf": 8280,
+      "gdscript_leaf": 8280,
+      "csharp_textserver": 8280
+    },
+    "400": {
+      "csharp_leaf": 11040,
+      "gdscript_leaf": 11040,
+      "csharp_textserver": 11040
+    },
+    "300": {
+      "csharp_leaf": 14720,
+      "gdscript_leaf": 14720,
+      "csharp_textserver": 14720
+    }
+  }
+}
